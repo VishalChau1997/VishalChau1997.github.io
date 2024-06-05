@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dialogflow Voice Input</title>
+  <!-- Dialogflow Messenger Stylesheet -->
+  <link rel="stylesheet" href="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/themes/df-messenger-default.css">
+  <!-- Dialogflow Messenger Script -->
+  <script src="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/df-messenger.js"></script>
+  <style>
+    body {
+      font-family: Google Sans, sans-serif;
+    }
+    df-messenger {
+      z-index: 999;
+      position: fixed;
+      --df-messenger-font-color: #000;
+      --df-messenger-font-family: Google Sans;
+      --df-messenger-chat-background: #f3f6fc;
+      --df-messenger-message-user-background: #d3e3fd;
+      --df-messenger-message-bot-background: #fff;
+      bottom: 16px;
+      right: 16px;
+    }
+    #audio-btn {
+      position: fixed;
+      bottom: 125px;
+      right: 80px;
+      z-index: 1000;
+      padding: 10px;
+      cursor: pointer;
+      /* background-color: #007bff; */
+      color: white;
+      border: none;
+      border-radius: 25px;
+    /* display: none;  */
+    /* Hidden by default */
+    }
+    #language-selector {
+      position: fixed;
+      left: 100px;
+      top: 0px;
+      z-index: 1000;
+      background-color: #f3f6fc;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+    }
+    .radio-button {
+      margin: 5px 0;
+    }
+    .language-title {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Dialogflow Messenger Component -->
+  <df-messenger
+    id="df-messenger"
+    project-id="sbi-genai"
+    agent-id="dc1cb891-9e3c-409d-91b6-300fd43aee43"
+    language-code="en"
+    max-query-length="-1">
+    <df-messenger-chat-bubble chat-title=""></df-messenger-chat-bubble>
+  </df-messenger>
+
+  <!-- Language Selector UI -->
+  <div id="language-selector">
+    <div class="language-title">Select Your Language</div>
+    <!-- Radio Button for English Language -->
+    <div class="radio-button">
+      <input type="radio" id="lang-en" name="language" value="en" checked>
+      <label for="lang-en">English</label>
+    </div>
+    <!-- Radio Button for Hindi Language -->
+    <div class="radio-button">
+      <input type="radio" id="lang-hi" name="language" value="hi">
+      <label for="lang-hi">Hindi</label>
+    </div>
+  </div>
+
+  <!-- Audio Input Button -->
+  <button id="audio-btn">🎤</button>
+
+  <script>
+    // Reference to the audio button
+    const audioBtn = document.getElementById('audio-btn');
+    // Reference to the Dialogflow Messenger element
+    const dfMessenger = document.getElementById('df-messenger');
+
+    // Function to update the language code of Dialogflow Messenger
+    const updateLanguageCode = (langCode) => {
+      dfMessenger.setAttribute('language-code', langCode);
+      console.log(`Language code updated to: ${langCode}`);
+    };
+
+    // Event listeners for radio buttons to change the language dynamically
+    document.querySelectorAll('input[name="language"]').forEach((elem) => {
+      elem.addEventListener('change', (event) => {
+        updateLanguageCode(event.target.value);
+      });
+    });
+
+      // Function to toggle the visibility of the audio button
+    const toggleAudioButtonVisibility = () => {
+      const bubbleButton = dfMessenger.shadowRoot.querySelector('.bubble.focus-outline');
+      const isChatOpen = bubbleButton && bubbleButton.getAttribute('aria-expanded') === 'true';
+      audioBtn.style.display = isChatOpen ? 'display' : 'none';
+    };
+
+    // Observe changes to the aria-expanded attribute of the chat bubble button
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'aria-expanded') {
+          toggleAudioButtonVisibility();
+        }
+      });
+    });
+
+    // Wait for the shadow DOM to load and then start observing
+    dfMessenger.addEventListener('df-messenger-loaded', () => {
+      const bubbleButton = dfMessenger.shadowRoot.querySelector('.bubble.focus-outline');
+      if (bubbleButton) {
+        observer.observe(bubbleButton, { attributes: true });
+        toggleAudioButtonVisibility(); // Initial check
+      }
+    });
+
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // Check if the Web Speech API is supported
+    if ('webkitSpeechRecognition' in window) {
+      // Initialize the Web Speech API recognition object
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      // On recognition start
+      recognition.onstart = function () {
+        console.log('Voice recognition started');
+      };
+
+      // On result event that returns the recognized text
+      recognition.onresult = function (event) {
+        const transcript = event.results[0][0].transcript;
+        console.log('Voice input: ' + transcript);
+
+        // Send the recognized text to Dialogflow Messenger
+        if (dfMessenger) {
+          console.log('Sending transcript to Dialogflow Messenger:', transcript);
+          dfMessenger.renderCustomText(transcript, false);
+        } else {
+          console.error('Dialogflow Messenger element not found');
+        }
+      };
+
+      // Handle recognition errors
+      recognition.onerror = function (event) {
+        console.error('Voice recognition error: ' + event.error);
+      };
+
+      // On recognition end
+      recognition.onend = function () {
+        console.log('Voice recognition ended');
+      };
+
+      // Start voice recognition on button click with selected language
+      audioBtn.addEventListener('click', () => {
+        const langCode = document.querySelector('input[name="language"]:checked').value;
+        recognition.lang = langCode;
+        recognition.start();
+      });
+    } else {
+      // Log an error if the Web Speech API is not supported
+      console.error('Web Speech API is not supported in this browser');
+    }
+  </script>
+</body>
+</html>
